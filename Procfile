@@ -1,0 +1,1 @@
+web: java -jar target/mundial2026-orquesta-1.0.jar

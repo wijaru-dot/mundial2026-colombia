@@ -1,0 +1,33 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Mundial2026 Orquesta//ES
+CALSCALE:GREGORIAN
+
+BEGIN:VEVENT
+UID:mundial2026-K1@xai
+DTSTART:20260617T220000
+DTEND:20260618T000000
+SUMMARY:🇺🇿 Uzbekistán vs 🇨🇴 Colombia
+LOCATION:Estadio Azteca, Ciudad de México
+DESCRIPTION:Grupo K\nEstadio: Estadio Azteca, Ciudad de México\nDebut de Colombia - Grupo K
+END:VEVENT
+
+BEGIN:VEVENT
+UID:mundial2026-K2@xai
+DTSTART:20260623T220000
+DTEND:20260624T000000
+SUMMARY:🇨🇴 Colombia vs 🇨🇩 RD Congo
+LOCATION:Estadio Akron, Guadalajara
+DESCRIPTION:Grupo K\nEstadio: Estadio Akron, Guadalajara\nGrupo K
+END:VEVENT
+
+BEGIN:VEVENT
+UID:mundial2026-K3@xai
+DTSTART:20260627T193000
+DTEND:20260627T213000
+SUMMARY:🇨🇴 Colombia vs 🇵🇹 Portugal
+LOCATION:Hard Rock Stadium, Miami
+DESCRIPTION:Grupo K\nEstadio: Hard Rock Stadium, Miami\nCierre de fase de grupos
+END:VEVENT
+
+END:VCALENDAR

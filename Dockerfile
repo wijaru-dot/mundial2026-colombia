@@ -6,5 +6,5 @@ COPY . .
 RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests --no-transfer-progress
 
-# Línea clave recomendada por Railway: ejecuta cualquier JAR en target/
+# Esta es la línea recomendada por Railway
 CMD ["sh", "-c", "java -jar target/*.jar"]

@@ -1,8 +1,9 @@
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
 
-# Copiamos el archivo exacto que tienes localmente
-COPY target/app app.jar
+COPY . .
 
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+RUN chmod +x ./mvnw
+RUN ./mvnw clean package -DskipTests --no-transfer-progress
+
+CMD ["java", "-jar", "target/app.jar"]

@@ -6,5 +6,5 @@ COPY . .
 RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests --no-transfer-progress
 
-# Ejecuta cualquier .jar que se genere en target/
+# Esta línea es la clave: ejecuta cualquier JAR que se genere en target/
 CMD ["sh", "-c", "java -jar target/*.jar"]

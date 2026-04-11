@@ -3,8 +3,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN echo "cache-bust-v2"
+RUN echo "cache-bust-v3"
 RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests --no-transfer-progress
 
-CMD ["sh", "-c", "java -jar target/*.jar"]
+CMD ["sh", "-c", "java -jar target/app.jar"]

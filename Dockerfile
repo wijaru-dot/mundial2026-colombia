@@ -9,8 +9,8 @@ RUN ./mvnw clean package -DskipTests
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Copia cualquier archivo .jar que Maven haya generado
-COPY --from=builder /app/target/*.jar app.jar
+# Copiar el JAR generado por Spring Boot (puede tener o no extensión .jar)
+COPY --from=builder /app/target/mundial2026-orquesta-1.0* app.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,18 +1,19 @@
 FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /app
 
+# Copiar todo
 COPY . .
-RUN chmod +x ./mvnw
 
-# Compilar con Maven Wrapper
-RUN ./mvnw clean package -DskipTests
+# Dar permisos y compilar
+RUN chmod +x ./mvnw
+RUN ./mvnw clean package -DskipTests -B --no-transfer-progress
 
 # Imagen final
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Copiar cualquier archivo JAR que se haya generado (más flexible)
-COPY --from=builder /app/target/*-1.0.jar app.jar
+# Buscar y copiar cualquier JAR que Maven haya creado
+COPY --from=builder /app/target/*.jar app.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

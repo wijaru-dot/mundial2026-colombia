@@ -36,13 +36,18 @@ public class GeneradorCalendarioOrquesta {
 
         Gson gson = new Gson();
         InputStream is = getClass().getClassLoader().getResourceAsStream("partidos.json");
-        Map<String, List<Partido>> data = gson.fromJson(
+        Map<String, Object> data = gson.fromJson(
             new InputStreamReader(is, "UTF-8"),
-            new TypeToken<Map<String, List<Partido>>>() {}.getType()
+            new TypeToken<Map<String, Object>>() {}.getType()
         );
 
-        List<Partido> partidos = data.get("partidosGrupos");
-        Map<String, Resultado> resultados = cargarResultadosDesdeSheets();
+        List<Map<String, String>> grupos = (List<Map<String, String>>) data.get("partidosGrupos");
+        List<Map<String, String>> eliminatorios = (List<Map<String, String>>) data.get("partidosEliminatorios");
+
+        // Cargar resultados de grupos (pestaña 1)
+        Map<String, Resultado> resultadosGrupos = cargarResultados(0);
+        // Cargar equipos y resultados eliminatorios (pestaña 2)
+        Map<String, PartidoElim> datosElim = cargarEliminatorios();
 
         StringBuilder ics = new StringBuilder();
         ics.append("BEGIN:VCALENDAR\r\n");
@@ -54,75 +59,103 @@ public class GeneradorCalendarioOrquesta {
         ics.append("REFRESH-INTERVAL;VALUE=DURATION:PT1H\r\n");
         ics.append("X-PUBLISHED-TTL:PT1H\r\n");
 
-        for (Partido p : partidos) {
-            agregarEvento(ics, p, resultados.get(p.id));
+        // Partidos de grupos
+        for (Map<String, String> p : grupos) {
+            agregarEventoGrupo(ics, p, resultadosGrupos.get(p.get("id")));
+        }
+
+        // Partidos eliminatorios
+        for (Map<String, String> p : eliminatorios) {
+            agregarEventoEliminatorio(ics, p, datosElim.get(p.get("id")));
         }
 
         ics.append("END:VCALENDAR\r\n");
         response.getWriter().write(ics.toString());
     }
 
-    private Map<String, Resultado> cargarResultadosDesdeSheets() {
+    // Lee la pestaña de grupos (gid=0)
+    private Map<String, Resultado> cargarResultados(int gid) {
         Map<String, Resultado> map = new HashMap<>();
         try {
-            String csvUrl = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv";
-            String csvContent = new String(new URL(csvUrl).openStream().readAllBytes(), "UTF-8");
-            String[] lines = csvContent.split("\n");
-            for (int i = 1; i < lines.length; i++) {
-                String[] parts = lines[i].split(",");
-                if (parts.length >= 3) {
-                    String id = parts[0].trim();
-                    String golesL = parts[1].trim();
-                    String golesV = parts[2].trim();
-                    if (!golesL.isEmpty() && !golesV.isEmpty()) {
-                        try {
-                            map.put(id, new Resultado(Integer.parseInt(golesL), Integer.parseInt(golesV)));
-                        } catch (Exception ignored) {}
-                    }
+            String csvUrl = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv&gid=" + gid;
+            String csv = new String(new URL(csvUrl).openStream().readAllBytes(), "UTF-8");
+            for (String line : csv.split("\n")) {
+                String[] p = line.split(",");
+                if (p.length >= 3 && !p[0].trim().equals("id")) {
+                    try {
+                        String golesL = p[1].trim();
+                        String golesV = p[2].trim();
+                        if (!golesL.isEmpty() && !golesV.isEmpty()) {
+                            map.put(p[0].trim(), new Resultado(Integer.parseInt(golesL), Integer.parseInt(golesV)));
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         } catch (Exception e) {
-            System.out.println("No se pudo leer Google Sheets: " + e.getMessage());
+            System.out.println("No se pudo leer grupos: " + e.getMessage());
         }
         return map;
     }
 
-    private void agregarEvento(StringBuilder ics, Partido p, Resultado res) {
-        LocalDate fecha = LocalDate.parse(p.fecha);
-        LocalTime hora = LocalTime.parse(p.horaEDT);
+    // Lee la pestaña de eliminatorios (gid=1)
+    // Columnas: id | equipoLocal | flagLocal | equipoVisitante | flagVisitante | golesLocal | golesVisitante
+    private Map<String, PartidoElim> cargarEliminatorios() {
+        Map<String, PartidoElim> map = new HashMap<>();
+        try {
+            String csvUrl = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv&gid=1";
+            String csv = new String(new URL(csvUrl).openStream().readAllBytes(), "UTF-8");
+            for (String line : csv.split("\n")) {
+                String[] p = line.split(",");
+                if (p.length >= 5 && !p[0].trim().equals("id")) {
+                    String id = p[0].trim();
+                    String eqLocal = p[1].trim();
+                    String flLocal = p[2].trim();
+                    String eqVisit = p[3].trim();
+                    String flVisit = p[4].trim();
+                    Integer gL = null, gV = null;
+                    if (p.length >= 7 && !p[5].trim().isEmpty() && !p[6].trim().isEmpty()) {
+                        try { gL = Integer.parseInt(p[5].trim()); gV = Integer.parseInt(p[6].trim()); } catch (Exception ignored) {}
+                    }
+                    if (!eqLocal.isEmpty() && !eqVisit.isEmpty()) {
+                        map.put(id, new PartidoElim(eqLocal, flLocal, eqVisit, flVisit, gL, gV));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("No se pudo leer eliminatorios: " + e.getMessage());
+        }
+        return map;
+    }
+
+    private void agregarEventoGrupo(StringBuilder ics, Map<String, String> p, Resultado res) {
+        String id = p.get("id");
+        LocalDate fecha = LocalDate.parse(p.get("fecha"));
+        LocalTime hora = LocalTime.parse(p.get("horaEDT"));
         ZonedDateTime inicio = ZonedDateTime.of(fecha, hora, ZONA_ET);
         ZonedDateTime fin = inicio.plusHours(2);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
 
-        boolean esColombia = p.notas != null && p.notas.contains("🇨🇴");
+        boolean esColombia = p.getOrDefault("notas", "").contains("🇨🇴");
 
         String titulo;
         if (res != null) {
-            titulo = p.flagLocal + " " + p.local + " " + res.golesLocal + " - " + res.golesVisitante + " " + p.flagVisitante + " " + p.visitante;
+            titulo = p.get("flagLocal") + " " + p.get("local") + " " + res.golesLocal + " - " + res.golesVisitante + " " + p.get("flagVisitante") + " " + p.get("visitante");
         } else {
-            titulo = p.flagLocal + " " + p.local + " vs " + p.flagVisitante + " " + p.visitante;
+            titulo = p.get("flagLocal") + " " + p.get("local") + " vs " + p.get("flagVisitante") + " " + p.get("visitante");
         }
+        if (esColombia) titulo = "🇨🇴 " + titulo;
 
-        if (esColombia) {
-            titulo = "🇨🇴 " + titulo;
-        }
-
-        String descripcion = "📌 Grupo " + p.grupo
-            + "\\n🏟️ " + p.estadio
-            + "\\n📺 Canal: " + (p.canal != null ? p.canal : "TBD")
-            + "\\n" + (p.notas != null ? p.notas : "");
+        String desc = "📌 Grupo " + p.get("grupo") + "\\n🏟️ " + p.get("estadio") + "\\n" + p.getOrDefault("notas", "");
 
         ics.append("BEGIN:VEVENT\r\n");
-        ics.append("UID:mundial2026-").append(p.id).append("@mundial\r\n");
+        ics.append("UID:mundial2026-").append(id).append("@mundial\r\n");
         ics.append("DTSTART;TZID=America/Toronto:").append(inicio.format(fmt)).append("\r\n");
         ics.append("DTEND;TZID=America/Toronto:").append(fin.format(fmt)).append("\r\n");
         ics.append("SUMMARY:").append(titulo).append("\r\n");
-        ics.append("LOCATION:").append(p.estadio).append("\r\n");
-        ics.append("DESCRIPTION:").append(descripcion).append("\r\n");
-        if (esColombia) {
-            ics.append("CATEGORIES:Colombia\r\n");
-        }
-        ics.append("CATEGORIES:Grupo ").append(p.grupo).append("\r\n");
+        ics.append("LOCATION:").append(p.get("estadio")).append("\r\n");
+        ics.append("DESCRIPTION:").append(desc).append("\r\n");
+        ics.append("CATEGORIES:Grupo ").append(p.get("grupo")).append("\r\n");
+        if (esColombia) ics.append("CATEGORIES:Colombia\r\n");
         ics.append("BEGIN:VALARM\r\n");
         ics.append("TRIGGER:-PT60M\r\n");
         ics.append("ACTION:DISPLAY\r\n");
@@ -131,12 +164,60 @@ public class GeneradorCalendarioOrquesta {
         ics.append("END:VEVENT\r\n");
     }
 
-    static class Partido {
-        String id, fecha, horaEDT, grupo, local, flagLocal, visitante, flagVisitante, estadio, canal, notas;
+    private void agregarEventoEliminatorio(StringBuilder ics, Map<String, String> p, PartidoElim elim) {
+        String id = p.get("id");
+        LocalDate fecha = LocalDate.parse(p.get("fecha"));
+        LocalTime hora = LocalTime.parse(p.get("horaEDT"));
+        ZonedDateTime inicio = ZonedDateTime.of(fecha, hora, ZONA_ET);
+        ZonedDateTime fin = inicio.plusHours(2);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
+
+        String fase = p.get("fase");
+        String estadio = p.get("estadio");
+
+        String titulo;
+        if (elim != null && elim.golesLocal != null && elim.golesVisitante != null) {
+            titulo = elim.flagLocal + " " + elim.equipoLocal + " " + elim.golesLocal + " - " + elim.golesVisitante + " " + elim.flagVisitante + " " + elim.equipoVisitante;
+        } else if (elim != null) {
+            titulo = elim.flagLocal + " " + elim.equipoLocal + " vs " + elim.flagVisitante + " " + elim.equipoVisitante;
+        } else {
+            titulo = "⏳ Por definir";
+        }
+
+        boolean esColombia = elim != null && (elim.equipoLocal.contains("Colombia") || elim.equipoVisitante.contains("Colombia"));
+        if (esColombia) titulo = "🇨🇴 " + titulo;
+
+        String desc = "🏆 " + fase + "\\n🏟️ " + estadio;
+
+        ics.append("BEGIN:VEVENT\r\n");
+        ics.append("UID:mundial2026-").append(id).append("@mundial\r\n");
+        ics.append("DTSTART;TZID=America/Toronto:").append(inicio.format(fmt)).append("\r\n");
+        ics.append("DTEND;TZID=America/Toronto:").append(fin.format(fmt)).append("\r\n");
+        ics.append("SUMMARY:").append(fase).append(" - ").append(titulo).append("\r\n");
+        ics.append("LOCATION:").append(estadio).append("\r\n");
+        ics.append("DESCRIPTION:").append(desc).append("\r\n");
+        ics.append("CATEGORIES:").append(fase).append("\r\n");
+        if (esColombia) ics.append("CATEGORIES:Colombia\r\n");
+        ics.append("BEGIN:VALARM\r\n");
+        ics.append("TRIGGER:-PT60M\r\n");
+        ics.append("ACTION:DISPLAY\r\n");
+        ics.append("DESCRIPTION:⚽ En 1 hora: ").append(titulo).append("\r\n");
+        ics.append("END:VALARM\r\n");
+        ics.append("END:VEVENT\r\n");
     }
 
     static class Resultado {
         int golesLocal, golesVisitante;
         Resultado(int l, int v) { this.golesLocal = l; this.golesVisitante = v; }
+    }
+
+    static class PartidoElim {
+        String equipoLocal, flagLocal, equipoVisitante, flagVisitante;
+        Integer golesLocal, golesVisitante;
+        PartidoElim(String eL, String fL, String eV, String fV, Integer gL, Integer gV) {
+            this.equipoLocal = eL; this.flagLocal = fL;
+            this.equipoVisitante = eV; this.flagVisitante = fV;
+            this.golesLocal = gL; this.golesVisitante = gV;
+        }
     }
 }

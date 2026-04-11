@@ -1,5 +1,3 @@
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,8 +9,13 @@ import java.net.URL;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {
+    org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration.class,
+    org.springframework.boot.autoconfigure.data.r2dbc.R2dbcDataAutoConfiguration.class
+})
 @RestController
 public class GeneradorCalendarioOrquesta {
 

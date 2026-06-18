@@ -77,7 +77,7 @@ public class GeneradorCalendarioOrquesta {
     private Map<String, Resultado> cargarResultados(int gid) {
         Map<String, Resultado> map = new HashMap<>();
         try {
-            String csvUrl = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv&gid=" + gid;
+            String csvUrl = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/export?format=csv&gid=1150918774";
             String csv = new String(new URL(csvUrl).openStream().readAllBytes(), "UTF-8");
             for (String line : csv.split("\n")) {
                 String[] p = line.split(",");
